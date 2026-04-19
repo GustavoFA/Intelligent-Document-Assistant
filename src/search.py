@@ -5,7 +5,8 @@ import pickle
 import numpy as np
 from pathlib import Path
 from typing import List, Dict
-from sentence_transformers import SentenceTransformer
+
+from embeddings import load_model, encode_query
 
 """
 Search functionality for retrieved documents using FAISS and pre-computed embeddings.
@@ -17,7 +18,6 @@ This script:
 """
 
 # Configuration
-MODEL_NAME = "intfloat/multilingual-e5-base"
 TOP_K = 5
 
 
@@ -68,12 +68,12 @@ def retrieve(
     query: str,
     index: faiss.Index,
     chunks: List[Dict],
-    model: SentenceTransformer,
+    model,
     top_k: int = TOP_K
 ) -> List[Dict]:
     """Retrieve top-k relevant chunks for a query."""
     # Encode query
-    query_embedding = model.encode([query], convert_to_numpy=True).astype("float32")
+    query_embedding = encode_query(query, model)
     
     # Search in FAISS index
     distances, indices = index.search(query_embedding, top_k)
@@ -116,7 +116,7 @@ def format_results(query: str, results: List[Dict]) -> str:
     return "\n".join(output)
 
 
-def search_cli(model: SentenceTransformer, index: faiss.Index, chunks: List[Dict]) -> None:
+def search_cli(model, index: faiss.Index, chunks: List[Dict]) -> None:
     """Interactive command-line search interface."""
     print("\n" + "=" * 80)
     print("PT-BR Legal Documents Search Interface")
@@ -157,15 +157,13 @@ def main():
         artifacts_dir = setup_directories()
         
         # Load model
-        print(f"\nLoading model: {MODEL_NAME}")
-        model = SentenceTransformer(MODEL_NAME)
-        print("✓ Model loaded")
+        model = load_model()
         
         # Load index and chunks
         index = load_index(artifacts_dir)
         chunks = load_chunks(artifacts_dir)
         
-        print("\n" + "=" * 80)
+        print(f"\n" + "="*80)
         print("Search system initialized successfully!")
         print("=" * 80)
         
@@ -189,7 +187,7 @@ def search(query: str, top_k: int = TOP_K) -> List[Dict]:
         results = search("Como calcular o imposto de renda?")
     """
     artifacts_dir = setup_directories()
-    model = SentenceTransformer(MODEL_NAME)
+    model = load_model()
     index = load_index(artifacts_dir)
     chunks = load_chunks(artifacts_dir)
     

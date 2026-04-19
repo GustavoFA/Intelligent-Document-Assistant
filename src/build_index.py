@@ -6,9 +6,7 @@ import numpy as np
 from pathlib import Path
 from typing import List, Dict
 
-from sentence_transformers import SentenceTransformer
-
-from doc_process import chunk_documents, load_documents, setup_directories as setup_doc_directories
+from embeddings import load_model, generate_embeddings
 
 """
 Build and save FAISS index for Portuguese-BR legal documents.
@@ -21,9 +19,7 @@ This script:
 """
 
 # Configuration
-BATCH_SIZE = 32
 TOP_K = 5
-MODEL_NAME = "intfloat/multilingual-e5-base"
 
 
 def setup_directories() -> Path:
@@ -52,24 +48,7 @@ def load_chunks(artifacts_dir: Path) -> List[Dict]:
     return chunks
 
 
-def generate_embeddings(
-    chunks: List[Dict],
-    model: SentenceTransformer,
-    batch_size: int = BATCH_SIZE
-) -> np.ndarray:
-    """Generate embeddings for all chunks."""
-    print("\nGenerating embeddings...")
-    texts = [chunk["text"] for chunk in chunks]
 
-    embeddings = model.encode(
-        texts,
-        batch_size=batch_size,
-        show_progress_bar=True,
-        convert_to_numpy=True
-    )
-
-    print(f"Generated embeddings with shape {embeddings.shape}")
-    return embeddings
 
 
 def create_faiss_index(embeddings: np.ndarray) -> faiss.Index:
@@ -88,7 +67,8 @@ def create_faiss_index(embeddings: np.ndarray) -> faiss.Index:
 def save_index(
     index: faiss.Index,
     chunks: List[Dict],
-    artifacts_dir: Path
+    artifacts_dir: Path,
+    model_name: str = "intfloat/multilingual-e5-base"
 ) -> None:
     """Save FAISS index and metadata."""
     print("\nSaving index and metadata...")
@@ -112,7 +92,7 @@ def save_index(
         f.write(f"Total vectors: {index.ntotal}\n")
         f.write(f"Embedding dimension: {index.d}\n")
         f.write(f"Total chunks: {len(chunks)}\n")
-        f.write(f"Model: {MODEL_NAME}\n")
+        f.write(f"Model: {model_name}\n")
     print(f"Saved summary: {summary_path}")
 
 
@@ -126,9 +106,7 @@ def main():
     artifacts_dir = setup_directories()
 
     # Load model
-    print(f"\nLoading model: {MODEL_NAME}")
-    model = SentenceTransformer(MODEL_NAME)
-    print("Model loaded")
+    model = load_model()
 
     # Load chunks
     chunks = load_chunks(artifacts_dir)

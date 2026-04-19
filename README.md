@@ -44,7 +44,8 @@ python src/build_index.py
 
 **What it does:**
 - Loads pre-processed chunks from `artifacts/chunks.pkl`
-- Generates embeddings using `intfloat/multilingual-e5-base`:
+- Uses `embeddings.py` to generate embeddings:
+  - Model: `intfloat/multilingual-e5-base`
   - Multilingual model optimized for semantic similarity
   - Batch processing (32 chunks per batch)
   - Generates 768-dimensional embeddings
@@ -57,6 +58,17 @@ python src/build_index.py
 - `artifacts/faiss_index.bin` - Serialized FAISS index
 - `artifacts/chunks_metadata.json` - Chunk metadata for reference
 - `artifacts/index_summary.txt` - Index statistics and configuration
+
+### Embedding Management (`embeddings.py`)
+
+Centralized module for embedding operations used by other scripts:
+
+**Functions:**
+- `load_model()` - Loads pretrained multilingual embedding model
+- `generate_embeddings()` - Generates embeddings for document chunks
+- `encode_query()` - Encodes query strings into embedding vectors
+
+Used by: `build_index.py` and `search.py`
 
 ### Step 3: Search (`search.py`)
 
@@ -85,11 +97,14 @@ results = search("Como calcular o imposto de renda?", top_k=5)
 Intelligent-Document-Assistant/
 ├── README.md
 ├── LICENSE
+├── requirements.in
+├── requirements.txt
 ├── notebooks/
 │   └── retrieval.ipynb          # Exploratory notebook with examples
 ├── src/
 │   ├── doc_process.py           # Document processing and chunking
-│   ├── build_index.py           # Embedding generation and indexing
+│   ├── embeddings.py            # Embedding generation and management
+│   ├── build_index.py           # FAISS index creation
 │   └── search.py                # Search interface
 └── artifacts/                   # Generated artifacts (indexed files)
     ├── chunks.pkl               # Processed chunks
