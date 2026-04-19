@@ -8,6 +8,8 @@ from typing import List, Dict, Any
 
 from embeddings import load_model, encode_query
 
+from .config import MIN_CONTEXT_QUALITY
+
 """
 Search functionality for retrieved documents using FAISS and pre-computed embeddings.
 
@@ -188,6 +190,22 @@ class SearchEngine:
             })
 
         return results
+    
+    @staticmethod
+    def check_context_quality(
+            context: List[Dict]
+        ) -> bool:
+        """Check whether retrieved context is good enough."""
+
+        if not context:
+            return False
+        
+        # Check if any chunk has distance below threshold (higher quality)
+        if context and len(context) > 0:
+            best_distance = min(chunk.get('distance', float('inf')) for chunk in context)
+            return best_distance < MIN_CONTEXT_QUALITY
+        
+        return False
 
 
 if __name__ == "__main__":
