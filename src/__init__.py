@@ -14,11 +14,12 @@ from .llm import (
     call_ollama,
     list_models_info,
 )
-from .pipeline import rag_generate
+from .pipeline import rag_generate, retrieve_context
 
 __all__ = [
     # Pipeline
     "rag_generate",
+    "retrieve_context",
     # Prompt
     "build_prompt",
     "format_context_for_prompt",

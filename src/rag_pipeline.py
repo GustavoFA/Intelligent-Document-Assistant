@@ -32,7 +32,7 @@ from .llm import (
     call_ollama,
     list_models_info,
 )
-from .pipeline import rag_generate
+from .pipeline import rag_generate, retrieve_context
 
 __all__ = [
     # Config
@@ -49,6 +49,7 @@ __all__ = [
     "format_context_for_prompt",
     # Retrieval
     "check_context_quality",
+    "retrieve_context",
     # LLM
     "check_ollama_availability",
     "get_available_models",

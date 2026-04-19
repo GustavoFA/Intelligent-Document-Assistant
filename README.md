@@ -91,18 +91,22 @@ results = search("Como calcular o imposto de renda?", top_k=5)
   - Document metadata (filename, doc_id, chunk_id)
   - Full chunk text
 
-### Step 4: RAG Generation (`rag_pipeline.py`)
+### Step 4: RAG Generation (`pipeline.py`)
 
-Generate LLM responses using retrieved context (Retrieval-Augmented Generation):
+Generate LLM responses using end-to-end Retrieval-Augmented Generation (RAG):
 
-```bash
-from src.search import search
-from src.rag_pipeline import rag_generate
+```python
+from src.pipeline import rag_generate
 
-# Retrieve context
-context = search("Como calcular o imposto de renda?", top_k=5)
+# Option 1: Automatic retrieval (simplest)
+response = rag_generate(
+    user_prompt="Como calcular o imposto de renda?"
+)
+print(response)
 
-# Generate response
+# Option 2: With pre-retrieved context
+from src.pipeline import retrieve_context
+context = retrieve_context("Como calcular o imposto de renda?", top_k=5)
 response = rag_generate(
     user_prompt="Como calcular o imposto de renda?",
     context=context
@@ -110,18 +114,34 @@ response = rag_generate(
 print(response)
 ```
 
+**Pipeline Flow:**
+```
+User Query
+   ↓
+retrieve_context (FAISS)
+   ↓
+check_context_quality (distance < 0.4)
+   ↓
+build_prompt (system + user messages)
+   ↓
+call_ollama (with retry logic)
+   ↓
+Response
+```
+
 **Features:**
-- Build structured prompts with separate system and user roles
-- Call Ollama for LLM-based response generation
-- Automatic context quality validation (minimum relevance threshold)
-- Retry logic with exponential backoff (up to 2 retries on timeout/connection errors)
-- Automatic model selection based on available resources:
+- **Automatic Retrieval**: Retrieves relevant chunks from FAISS index using semantic search
+- **Context Validation**: Checks if retrieved context meets quality threshold
+- **Structured Prompts**: Builds prompts with separate system and user roles
+- **LLM Generation**: Calls Ollama with automatic retry on timeout/connection errors
+- **Resource-Aware**: Auto-selects model based on available resources:
   - **High Resource**: llama3, llama2:13b (8GB+ VRAM)
   - **Medium Resource**: llama2:7b, neural-chat (4-8GB VRAM)
   - **Low Resource**: orca-mini, phi (CPU or <4GB VRAM)
-- Supports temperature and top_p tuning
+- **Configurable**: Supports temperature, top_p, top_k tuning
 
 **Requirements:**
+- FAISS index and chunks created (`python src/build_index.py`)
 - Ollama running locally (`ollama serve`)
 - At least one language model installed
 - Retrieved context with minimum quality threshold (distance < 0.4)
@@ -135,18 +155,19 @@ ollama pull neural-chat     # Lightweight
 ```
 
 **Functions:**
+- `retrieve_context(query, top_k=5)` - Retrieves context from FAISS using semantic search
+- `rag_generate(user_prompt, context=None, ...)` - Complete RAG pipeline with automatic retrieval
 - `build_prompt()` - Constructs prompt with system and user messages
 - `call_ollama()` - Calls Ollama API with retry logic
-- `rag_generate()` - Complete RAG pipeline with validation
-- `select_model()` - Selects model based on resource constraints
 - `check_context_quality()` - Validates context relevance
-- `format_context_for_prompt()` - Formats context for the prompt
+- `select_model()` - Selects model based on resource constraints
 
 **Configuration:**
 - `MAX_RETRIES = 2` - Number of retries on timeout/connection errors
 - `RETRY_DELAY = 2` - Seconds to wait between retries
 - `REQUEST_TIMEOUT = 300` - Seconds timeout for API requests
 - `MIN_CONTEXT_QUALITY = 0.4` - Minimum distance threshold for context (lower is better)
+- `top_k = 5` - Default number of context chunks to retrieve
 
 ## Module Architecture
 
@@ -192,11 +213,25 @@ from src.llm import call_ollama, select_model, check_ollama_availability
 ```
 
 ### `pipeline.py`
-Main RAG pipeline orchestration:
-- `rag_generate(user_prompt, context, ...)` - Complete end-to-end RAG pipeline
+Main RAG pipeline orchestration with integrated retrieval:
+- `retrieve_context(query, top_k=5)` - Retrieves relevant chunks from FAISS index using semantic search
+- `rag_generate(user_prompt, context=None, ...)` - Complete end-to-end RAG pipeline with automatic retrieval if context not provided
+
+Implements the complete RAG flow:
+```
+User Query → retrieve_context → check_context_quality → build_prompt → call_ollama → Response
+```
 
 ```python
-from src.pipeline import rag_generate
+from src.pipeline import rag_generate, retrieve_context
+
+# Automatic retrieval (context retrieved automatically)
+response = rag_generate("Como calcular o imposto de renda?")
+
+# With pre-retrieved context
+context = retrieve_context("Como calcular o imposto de renda?", top_k=5)
+response = rag_generate("Como calcular o imposto de renda?", context=context)
+```
 ```
 
 ### Backward Compatibility
