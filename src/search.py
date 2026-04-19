@@ -198,7 +198,7 @@ class SearchEngine:
         
         # Check if any chunk has distance below threshold (higher quality)
         if context and len(context) > 0:
-            best_distance = min(chunk.get('distance', float('inf')) for chunk in context)
+            best_distance = min(chunk.get('score', float('inf')) for chunk in context)
             return best_distance < MAX_CONTEXT_DISTANCE
         
         return False
