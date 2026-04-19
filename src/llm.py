@@ -42,7 +42,8 @@ def get_available_models() -> List[str]:
         if response.status_code == 200:
             data = response.json()
             models = data.get("models", [])
-            return [model.get("name") for model in models if models]
+            # return [model.get("name") for model in models if models]
+            return [model.get("name") for model in models if model and model.get("name")]
         return []
     except (requests.ConnectionError, requests.Timeout, ValueError):
         return []
@@ -159,7 +160,7 @@ def call_ollama(
             )
             
             if response.status_code != 200:
-                raise RuntimeError(f"Ollama API error: {response.status_code}")
+                raise RuntimeError(f"Ollama API error: {response.status_code}: {response.text}")
             
             result = response.json()
             return result.get("message", {}).get("content", "")
