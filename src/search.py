@@ -2,7 +2,7 @@
 import sys
 import faiss
 import pickle
-import numpy as np
+import logging
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -20,80 +20,7 @@ This script:
 # Configuration
 TOP_K = 5
 
-
-def setup_directories() -> Path:
-    """Get artifacts directory."""
-    artifacts_dir = Path(__file__).parent.parent / "artifacts"
-    if not artifacts_dir.exists():
-        raise FileNotFoundError(f"Artifacts directory not found: {artifacts_dir}")
-    print(f"Artifacts directory: {artifacts_dir}")
-    return artifacts_dir
-
-
-def load_index(artifacts_dir: Path) -> faiss.Index:
-    """Load FAISS index from file."""
-    print("\nLoading FAISS index...")
-    index_path = artifacts_dir / "faiss_index.bin"
-    
-    if not index_path.exists():
-        raise FileNotFoundError(
-            f"FAISS index not found: {index_path}\n"
-            f"Please run build_index.py first."
-        )
-    
-    index = faiss.read_index(str(index_path))
-    print(f"Loaded FAISS index with {index.ntotal} vectors")
-    return index
-
-
-def load_chunks(artifacts_dir: Path) -> List[Dict]:
-    """Load chunks from pickle file."""
-    print("\nLoading chunks...")
-    chunks_path = artifacts_dir / "chunks.pkl"
-    
-    if not chunks_path.exists():
-        raise FileNotFoundError(
-            f"Chunks file not found: {chunks_path}\n"
-            f"Please run doc_process.py first."
-        )
-    
-    with open(chunks_path, "rb") as f:
-        chunks = pickle.load(f)
-    
-    print(f"Loaded {len(chunks)} chunks")
-    return chunks
-
-#TODO - Pass this function to the retrieval module.
-def retrieve(
-    query: str,
-    index: faiss.Index,
-    chunks: List[Dict],
-    model,
-    top_k: int = TOP_K
-) -> List[Dict]:
-    """Retrieve top-k relevant chunks for a query."""
-    # Encode query
-    query_embedding = encode_query(query, model)
-    
-    # Search in FAISS index
-    # TODO - Explorer other metric - in the build_index module
-    scores, indices = index.search(query_embedding, top_k)
-    
-    # Retrieve relevant chunks
-    results = []
-    for i, idx in enumerate(indices[0]):
-        if idx != -1:
-            chunk = chunks[idx]
-            results.append({
-                "rank": i + 1,
-                "distance": float(scores[0][i]),
-                "doc_id": chunk["doc_id"],
-                "chunk_id": chunk["chunk_id"],
-                "filename": chunk["filename"],
-                "text": chunk["text"]
-            })
-    
-    return results
+logger = logging.getLogger(__name__)
 
 
 def format_results(query: str, results: List[Dict]) -> str:
@@ -109,7 +36,7 @@ def format_results(query: str, results: List[Dict]) -> str:
         for result in results:
             output.append(f"\n[Rank {result['rank']}] {result['filename']}")
             output.append(f"Document ID: {result['doc_id']} | Chunk ID: {result['chunk_id']}")
-            output.append(f"Distance: {result['distance']:.4f}")
+            output.append(f"Score: {result['score']:.4f}")
             output.append("-" * 80)
             output.append(f"Text: {result['text']}")
             output.append("")
@@ -117,7 +44,7 @@ def format_results(query: str, results: List[Dict]) -> str:
     return "\n".join(output)
 
 
-def search_cli(model, index: faiss.Index, chunks: List[Dict]) -> None:
+def search_cli(engine: "SearchEngine") -> None:
     """Interactive command-line search interface."""
     print("\n" + "=" * 80)
     print("PT-BR Legal Documents Search Interface")
@@ -139,7 +66,7 @@ def search_cli(model, index: faiss.Index, chunks: List[Dict]) -> None:
                 print("Please enter a valid query.")
                 continue
             
-            results = retrieve(query, index, chunks, model)
+            results = engine.retrieve(query)
             print(format_results(query, results))
             
         except KeyboardInterrupt:
@@ -156,22 +83,15 @@ def main():
     print("=" * 80)
     
     try:
-        # Setup
-        artifacts_dir = setup_directories()
-        
-        # Load model
-        model = load_model()
-        
-        # Load index and chunks
-        index = load_index(artifacts_dir)
-        chunks = load_chunks(artifacts_dir)
+        # Initialize SearchEngine
+        engine = SearchEngine()
         
         print(f"\n" + "="*80)
         print("Search system initialized successfully!")
         print("=" * 80)
         
         # Start interactive search
-        search_cli(model, index, chunks)
+        search_cli(engine)
         
     except FileNotFoundError as e:
         print(f"\nError: {e}")
@@ -180,100 +100,75 @@ def main():
         print(f"\nUnexpected error: {e}")
         sys.exit(1)
 
-# BUG - This function is not optimized
-def search(query: str, top_k: int = TOP_K) -> List[Dict]:
-    """
-    Standalone search function for programmatic use.
-    
-    Usage:
-        from search import search
-        results = search("Como calcular o imposto de renda?")
-    """
-    artifacts_dir = setup_directories()
-    model = load_model()
-    index = load_index(artifacts_dir)
-    chunks = load_chunks(artifacts_dir)
-    
-    return retrieve(query, index, chunks, model, top_k=top_k)
-
-#TODO - Remove the function above and uncomment the one below.
-# def search(
-#         query: str, 
-#         chunks: List[Dict], 
-#         index: faiss.Index, 
-#         model,
-#         top_k: int = TOP_K 
-#     ) -> List[Dict]:
-#     """
-#         Standalone search function. 
-#     """
-#     return retrieve(query, index, chunks, model, top_k)
-
 class SearchEngine:
-    """
-        Search engine class to encapsulate retrieval logic and resources.
-    """
-    def __init__(self):
-        self.artifacts_dir = self.setup_directories()
+    """Encapsulates retrieval logic and loaded search resources."""
+
+    def __init__(self) -> None:
+        self.artifacts_dir = self.get_artifacts_dir()
         self.model = load_model()
         self.index = self.load_index()
         self.chunks = self.load_chunks()
 
     @staticmethod
-    def setup_directories() -> Path:
-        """Get artifacts directory."""
+    def get_artifacts_dir() -> Path:
+        """Resolve and validate the artifacts directory."""
         artifacts_dir = Path(__file__).parent.parent / "artifacts"
         if not artifacts_dir.exists():
             raise FileNotFoundError(f"Artifacts directory not found: {artifacts_dir}")
-        print(f"Artifacts directory: {artifacts_dir}")
+        logger.info("Artifacts directory: %s", artifacts_dir)
         return artifacts_dir
-    
+
     def load_index(self) -> faiss.Index:
-        """Load FAISS index from file."""
-        print("\nLoading FAISS index...")
+        """Load the FAISS index from disk."""
+        logger.info("Loading FAISS index...")
         index_path = self.artifacts_dir / "faiss_index.bin"
-        
+
         if not index_path.exists():
             raise FileNotFoundError(
                 f"FAISS index not found: {index_path}\n"
                 f"Please run build_index.py first."
             )
-        
+
         index = faiss.read_index(str(index_path))
-        print(f"Loaded FAISS index with {index.ntotal} vectors")
+
+        if index.ntotal == 0:
+            raise ValueError("FAISS index is empty.")
+
+        logger.info("Loaded FAISS index with %d vectors", index.ntotal)
         return index
-    
-    def load_chunks(self) -> List[Dict]:
-        """Load chunks from pickle file."""
-        print("\nLoading chunks...")
+
+    def load_chunks(self) -> List[Dict[str, Any]]:
+        """Load chunk metadata from disk."""
+        logger.info("Loading chunks...")
         chunks_path = self.artifacts_dir / "chunks.pkl"
-        
+
         if not chunks_path.exists():
             raise FileNotFoundError(
                 f"Chunks file not found: {chunks_path}\n"
                 f"Please run doc_process.py first."
             )
-        
+
         with open(chunks_path, "rb") as f:
             chunks = pickle.load(f)
-        
-        print(f"Loaded {len(chunks)} chunks")
+
+        if len(chunks) != self.index.ntotal:
+            raise ValueError(
+                f"Mismatch between chunks ({len(chunks)}) and FAISS index ({self.index.ntotal})."
+            )
+
+        logger.info("Loaded %d chunks", len(chunks))
         return chunks
 
-    # def _load_index(self) -> faiss.Index:
-    #     index_path = self.artifacts_dir / "faiss_index.bin"
-    #     if not index_path.exists():
-    #         raise FileNotFoundError(f"FAISS index not found: {index_path}")
-    #     return faiss.read_index(str(index_path))
+    def retrieve(self, query: str, top_k: int = TOP_K) -> List[Dict[str, Any]]:
+        """Retrieve the top-k most relevant chunks for a query."""
+        if not query or not query.strip():
+            raise ValueError("query must be a non-empty string")
 
-    # def _load_chunks(self) -> List[Dict[str, Any]]:
-    #     chunks_path = self.artifacts_dir / "chunks.pkl"
-    #     if not chunks_path.exists():
-    #         raise FileNotFoundError(f"Chunks file not found: {chunks_path}")
-    #     with open(chunks_path, "rb") as f:
-    #         return pickle.load(f)
+        if top_k <= 0:
+            raise ValueError("top_k must be greater than 0")
 
-    def retrieve(self, query: str, top_k: int = TOP_K) -> List[Dict]:
+        top_k = min(top_k, self.index.ntotal)
+
         query_embedding = encode_query(query, self.model)
         scores, indices = self.index.search(query_embedding, top_k)
 
@@ -286,10 +181,10 @@ class SearchEngine:
             results.append({
                 "rank": i + 1,
                 "score": float(scores[0][i]),
-                "doc_id": chunk.get("doc_id"),
-                "chunk_id": chunk.get("chunk_id"),
-                "filename": chunk.get("filename"),
-                "text": chunk.get("text", "")
+                "doc_id": chunk["doc_id"],
+                "chunk_id": chunk["chunk_id"],
+                "filename": chunk["filename"],
+                "text": chunk["text"],
             })
 
         return results
