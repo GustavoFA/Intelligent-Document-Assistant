@@ -1,9 +1,9 @@
 """
 Configuration constants for the RAG pipeline.
 """
-
+import os
 # Ollama configuration
-OLLAMA_API_URL = "http://localhost:11434/api"
+OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api")
 OLLAMA_CHAT_ENDPOINT = f"{OLLAMA_API_URL}/chat"
 OLLAMA_TAGS_ENDPOINT = f"{OLLAMA_API_URL}/tags"
 
