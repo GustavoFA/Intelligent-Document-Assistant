@@ -76,33 +76,48 @@ python src/build_index.py
 
 Centralized module for embedding operations used by other scripts:
 
+**Configuration (from `config.py`):**
+- `EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-base"` - Multilingual embedding model
+- `EMBEDDING_BATCH_SIZE = 32` - Batch size for processing
+
 **Functions:**
-- `load_model()` - Loads pretrained multilingual embedding model
-- `generate_embeddings()` - Generates embeddings for document chunks
-- `encode_query()` - Encodes query strings into embedding vectors
+- `load_model(model_name)` - Loads pretrained multilingual embedding model
+- `generate_embeddings(chunks, model, batch_size)` - Generates embeddings for document chunks
+- `encode_query(query, model)` - Encodes query strings into embedding vectors
 
 Used by: `build_index.py` and `search.py`
 
 ### Step 3: Search (`search.py`)
 
-Query the indexed documents:
+Query the indexed documents using the `SearchEngine` class:
 
 ```bash
 # Interactive CLI
-python src/search.py
+python -m src.search
 
 # Programmatic usage
-from src.search import search
-results = search("Como calcular o imposto de renda?", top_k=5)
+from src.search import SearchEngine
+
+engine = SearchEngine()
+results = engine.retrieve("Como calcular o imposto de renda?", top_k=5)
 ```
 
+**SearchEngine Class:**
+- `__init__()` - Initializes search engine (loads model, index, and chunks)
+- `retrieve(query, top_k)` - Retrieves top-k relevant chunks for a query
+- `load_index()` - Loads FAISS index from disk
+- `load_chunks()` - Loads chunk metadata from disk
+- `get_artifacts_dir()` - Resolves and validates artifacts directory
+
 **Features:**
+- SearchEngine class encapsulates retrieval logic and resources
 - Interactive command-line interface for searching
-- Programmatic search function for integration
+- Programmatic search interface for integration
 - Returns ranked results with:
-  - Rank and L2 distance score
+  - Rank and score (L2 distance)
   - Document metadata (filename, doc_id, chunk_id)
   - Full chunk text
+- Input validation and error handling
 
 ### Step 4: RAG Generation (`pipeline.py`)
 
@@ -188,77 +203,96 @@ The RAG pipeline is organized into modular components for better maintainability
 
 ### `config.py`
 Centralized configuration constants for the entire pipeline:
+- Embedding model and batch size
+- Chunk size and overlap settings
+- Hugging Face dataset information
 - Ollama API endpoints and model configurations
 - Timeout and retry settings
 - Quality thresholds
 
 ```python
-from src.config import MAX_RETRIES, MIN_CONTEXT_QUALITY, MODELS_CONFIG
+from src.config import (
+    CHUNK_SIZE, CHUNK_OVERLAP, SEPARATORS,
+    EMBEDDING_MODEL_NAME, EMBEDDING_BATCH_SIZE,
+    TOP_K, MAX_CONTEXT_DISTANCE,
+    OLLAMA_API_URL, MAX_RETRIES, RETRY_DELAY, REQUEST_TIMEOUT,
+    HF_DATASET_NAME, HF_DATA_FILE,
+    MODELS_CONFIG
+)
 ```
+
+### `embeddings.py`
+Centralized module for embedding operations:
+```python
+from src.embeddings import load_model, generate_embeddings, encode_query
+```
+Uses `EMBEDDING_MODEL_NAME` and `EMBEDDING_BATCH_SIZE` from config.
+
+### `doc_process.py`
+Document loading, cleaning, and chunking:
+```python
+from src.doc_process import chunk_documents, clean_legal_text, load_documents
+```
+Uses `CHUNK_SIZE`, `CHUNK_OVERLAP`, `SEPARATORS`, `HF_DATASET_NAME`, `HF_DATA_FILE` from config.
+
+### `build_index.py`
+FAISS index creation from embeddings:
+```python
+from src.build_index import create_faiss_index, save_index, load_chunks
+```
+Uses `TOP_K` and `EMBEDDING_MODEL_NAME` from config.
+
+### `search.py`
+SearchEngine class for semantic document retrieval:
+```python
+from src.search import SearchEngine, format_results
+
+engine = SearchEngine()  # Loads model, index, and chunks
+results = engine.retrieve(query, top_k=5)
+formatted = format_results(query, results)
+```
+Uses `TOP_K` and `MAX_CONTEXT_DISTANCE` from config.
 
 ### `prompt.py`
 Utilities for building structured prompts with system and user roles:
-- `build_prompt(user_prompt, user_questions, context)` - Returns (system_message, user_message)
-- `format_context_for_prompt(context)` - Formats context chunks for display
-
 ```python
 from src.prompt import build_prompt, format_context_for_prompt
+
+system_msg, user_msg = build_prompt(user_prompt, context=results)
 ```
 
 ### `retrieval.py`
 Context validation and quality checking:
-- `check_context_quality(context)` - Validates that retrieved context meets quality threshold
-
 ```python
 from src.retrieval import check_context_quality
+
+is_valid = check_context_quality(context)
 ```
 
 ### `llm.py`
 Ollama LLM integration with retry logic:
-- `call_ollama(system_message, user_message, ...)` - Calls Ollama API with automatic retries
-- `select_model(resource_level)` - Auto-selects model based on available resources
-- `get_available_models()` - Lists installed Ollama models
-- `check_ollama_availability()` - Checks if Ollama is running
-- `list_models_info()` - Displays model information and requirements
-
 ```python
 from src.llm import call_ollama, select_model, check_ollama_availability
+
+model = select_model()
+response = call_ollama(system_message, user_message)
 ```
 
 ### `pipeline.py`
 Main RAG pipeline orchestration with integrated retrieval:
-- `retrieve_context(query, top_k=5)` - Retrieves relevant chunks from FAISS index using semantic search
-- `rag_generate(user_prompt, context=None, ...)` - Complete end-to-end RAG pipeline with automatic retrieval if context not provided
-
-Implements the complete RAG flow:
-```
-User Query → retrieve_context → check_context_quality → build_prompt → call_ollama → Response
-```
-
 ```python
 from src.pipeline import rag_generate, retrieve_context
 
-# Automatic retrieval (context retrieved automatically)
+# Complete end-to-end RAG pipeline
 response = rag_generate("Como calcular o imposto de renda?")
 
-# With pre-retrieved context
+# Or retrieve context separately
 context = retrieve_context("Como calcular o imposto de renda?", top_k=5)
 response = rag_generate("Como calcular o imposto de renda?", context=context)
 ```
-```
 
 ### Backward Compatibility
-The original `rag_pipeline.py` re-exports all functions from the modular structure, maintaining backward compatibility:
-
-```python
-# Old style (still works)
-from src.rag_pipeline import rag_generate, build_prompt, call_ollama
-
-# New style (recommended for new code)
-from src.pipeline import rag_generate
-from src.prompt import build_prompt
-from src.llm import call_ollama
-```
+The original `rag_pipeline.py` re-exports all functions from the modular structure, maintaining backward compatibility with existing code.
 
 ## Project Structure
 
@@ -268,20 +302,27 @@ Intelligent-Document-Assistant/
 ├── LICENSE
 ├── requirements.in
 ├── requirements.txt
+├── run_api.sh
 ├── notebooks/
 │   └── retrieval.ipynb          # Exploratory notebook with examples
+├── api/
+│   ├── __init__.py
+│   ├── main.py                  # FastAPI application
+│   ├── schemas.py               # Request/response schemas
+│   └── dependencies.py          # Dependency injection
 ├── src/
 │   ├── __init__.py              # Package initialization
-│   ├── config.py                # Configuration constants
+│   ├── config.py                # Centralized configuration constants
 │   ├── doc_process.py           # Document processing and chunking
 │   ├── embeddings.py            # Embedding generation and management
 │   ├── build_index.py           # FAISS index creation
-│   ├── search.py                # Search interface
+│   ├── search.py                # SearchEngine class for semantic search
 │   ├── prompt.py                # Prompt building utilities
 │   ├── retrieval.py             # Context validation utilities
 │   ├── llm.py                   # Ollama LLM integration
 │   ├── pipeline.py              # RAG pipeline orchestration
-│   └── rag_pipeline.py          # Backward compatibility re-exports
+│   ├── rag_pipeline.py          # Backward compatibility re-exports
+│   └── legacy.py                # Legacy functions (if any)
 └── artifacts/                   # Generated artifacts (indexed files)
     ├── chunks.pkl               # Processed chunks
     ├── faiss_index.bin          # FAISS index
@@ -294,13 +335,28 @@ Intelligent-Document-Assistant/
 **Full retrieval pipeline:**
 ```bash
 # 1. Process documents
-python src/doc_process.py
+python -m src.doc_process
 
 # 2. Build FAISS index
-python src/build_index.py
+python -m src.build_index
 
 # 3. Start searching
-python src/search.py
+python -m src.search
+```
+
+**Programmatic search:**
+```python
+from src.search import SearchEngine
+
+# Initialize engine (loads model, index, and chunks)
+engine = SearchEngine()
+
+# Retrieve relevant chunks
+results = engine.retrieve("Como calcular o imposto de renda?", top_k=5)
+
+# Format and display results
+from src.search import format_results
+print(format_results("Como calcular o imposto de renda?", results))
 ```
 
 **Full RAG pipeline (with LLM generation):**
@@ -313,10 +369,11 @@ ollama pull llama2  # or mistral, neural-chat, etc.
 
 # Run the RAG pipeline
 python -c "
-from src.search import search
-from src.rag_pipeline import rag_generate
+from src.search import SearchEngine
+from src.pipeline import rag_generate
 
-context = search('Como calcular o imposto de renda?', top_k=5)
+engine = SearchEngine()
+context = engine.retrieve('Como calcular o imposto de renda?', top_k=5)
 response = rag_generate('Como calcular o imposto de renda?', context=context)
 print(response)
 "
@@ -329,32 +386,41 @@ print(response)
 
 ## Configuration
 
-Key parameters in each script:
+All configuration is centralized in `config.py`. Key parameters:
 
-**doc_process.py:**
+**Document Processing:**
+```python
+from src.config import CHUNK_SIZE, CHUNK_OVERLAP, SEPARATORS, HF_DATASET_NAME, HF_DATA_FILE
+```
 - `CHUNK_SIZE = 700` - Token size for each chunk
 - `CHUNK_OVERLAP = 100` - Token overlap between chunks
 - `SEPARATORS` - Legal structure patterns (Articles, Paragraphs, etc.)
+- `HF_DATASET_NAME = "unicamp-dl/rag-rfb"` - Hugging Face dataset
+- `HF_DATA_FILE = "referred_legal_documents_QA_2024_v1.1.json"` - Dataset file
 
-**embeddings.py:**
-- `MODEL_NAME = "intfloat/multilingual-e5-base"` - Embedding model
-- `BATCH_SIZE = 32` - Batch size for embedding generation
+**Embeddings:**
+```python
+from src.config import EMBEDDING_MODEL_NAME, EMBEDDING_BATCH_SIZE
+```
+- `EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-base"` - Embedding model
+- `EMBEDDING_BATCH_SIZE = 32` - Batch size for embedding generation
 
-**build_index.py:**
+**Retrieval & Search:**
+```python
+from src.config import TOP_K, MAX_CONTEXT_DISTANCE
+```
 - `TOP_K = 5` - Default number of results
+- `MAX_CONTEXT_DISTANCE = 0.4` - Maximum distance threshold for context quality
 
-**search.py:**
-- `TOP_K = 5` - Default number of search results
-
-**rag_pipeline.py:**
+**Ollama Configuration:**
+```python
+from src.config import OLLAMA_API_URL, MAX_RETRIES, RETRY_DELAY, REQUEST_TIMEOUT, MODELS_CONFIG
+```
 - `OLLAMA_API_URL = "http://localhost:11434/api"` - Ollama server URL
 - `MAX_RETRIES = 2` - Retry attempts on timeout/connection errors
 - `RETRY_DELAY = 2` - Seconds between retry attempts
 - `REQUEST_TIMEOUT = 300` - Request timeout in seconds
-- `MIN_CONTEXT_QUALITY = 0.4` - Minimum distance threshold for context
-- Resource levels: `high_resource`, `medium_resource`, `low_resource`
-- Default temperature: `0.7`
-- Default top_p: `0.9`
+- `MODELS_CONFIG` - Resource-aware model configurations (high/medium/low resource)
 
 ## REST API (FastAPI)
 
