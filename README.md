@@ -91,6 +91,127 @@ results = search("Como calcular o imposto de renda?", top_k=5)
   - Document metadata (filename, doc_id, chunk_id)
   - Full chunk text
 
+### Step 4: RAG Generation (`rag_pipeline.py`)
+
+Generate LLM responses using retrieved context (Retrieval-Augmented Generation):
+
+```bash
+from src.search import search
+from src.rag_pipeline import rag_generate
+
+# Retrieve context
+context = search("Como calcular o imposto de renda?", top_k=5)
+
+# Generate response
+response = rag_generate(
+    user_prompt="Como calcular o imposto de renda?",
+    context=context
+)
+print(response)
+```
+
+**Features:**
+- Build structured prompts with separate system and user roles
+- Call Ollama for LLM-based response generation
+- Automatic context quality validation (minimum relevance threshold)
+- Retry logic with exponential backoff (up to 2 retries on timeout/connection errors)
+- Automatic model selection based on available resources:
+  - **High Resource**: llama3, llama2:13b (8GB+ VRAM)
+  - **Medium Resource**: llama2:7b, neural-chat (4-8GB VRAM)
+  - **Low Resource**: orca-mini, phi (CPU or <4GB VRAM)
+- Supports temperature and top_p tuning
+
+**Requirements:**
+- Ollama running locally (`ollama serve`)
+- At least one language model installed
+- Retrieved context with minimum quality threshold (distance < 0.4)
+
+**Model Selection:**
+```bash
+# Install Ollama models
+ollama pull llama2          # Balanced (7B)
+ollama pull mistral         # Fast and efficient
+ollama pull neural-chat     # Lightweight
+```
+
+**Functions:**
+- `build_prompt()` - Constructs prompt with system and user messages
+- `call_ollama()` - Calls Ollama API with retry logic
+- `rag_generate()` - Complete RAG pipeline with validation
+- `select_model()` - Selects model based on resource constraints
+- `check_context_quality()` - Validates context relevance
+- `format_context_for_prompt()` - Formats context for the prompt
+
+**Configuration:**
+- `MAX_RETRIES = 2` - Number of retries on timeout/connection errors
+- `RETRY_DELAY = 2` - Seconds to wait between retries
+- `REQUEST_TIMEOUT = 300` - Seconds timeout for API requests
+- `MIN_CONTEXT_QUALITY = 0.4` - Minimum distance threshold for context (lower is better)
+
+## Module Architecture
+
+The RAG pipeline is organized into modular components for better maintainability and reusability:
+
+### `config.py`
+Centralized configuration constants for the entire pipeline:
+- Ollama API endpoints and model configurations
+- Timeout and retry settings
+- Quality thresholds
+
+```python
+from src.config import MAX_RETRIES, MIN_CONTEXT_QUALITY, MODELS_CONFIG
+```
+
+### `prompt.py`
+Utilities for building structured prompts with system and user roles:
+- `build_prompt(user_prompt, user_questions, context)` - Returns (system_message, user_message)
+- `format_context_for_prompt(context)` - Formats context chunks for display
+
+```python
+from src.prompt import build_prompt, format_context_for_prompt
+```
+
+### `retrieval.py`
+Context validation and quality checking:
+- `check_context_quality(context)` - Validates that retrieved context meets quality threshold
+
+```python
+from src.retrieval import check_context_quality
+```
+
+### `llm.py`
+Ollama LLM integration with retry logic:
+- `call_ollama(system_message, user_message, ...)` - Calls Ollama API with automatic retries
+- `select_model(resource_level)` - Auto-selects model based on available resources
+- `get_available_models()` - Lists installed Ollama models
+- `check_ollama_availability()` - Checks if Ollama is running
+- `list_models_info()` - Displays model information and requirements
+
+```python
+from src.llm import call_ollama, select_model, check_ollama_availability
+```
+
+### `pipeline.py`
+Main RAG pipeline orchestration:
+- `rag_generate(user_prompt, context, ...)` - Complete end-to-end RAG pipeline
+
+```python
+from src.pipeline import rag_generate
+```
+
+### Backward Compatibility
+The original `rag_pipeline.py` re-exports all functions from the modular structure, maintaining backward compatibility:
+
+```python
+# Old style (still works)
+from src.rag_pipeline import rag_generate, build_prompt, call_ollama
+
+# New style (recommended for new code)
+from src.pipeline import rag_generate
+from src.prompt import build_prompt
+from src.llm import call_ollama
+```
+
 ## Project Structure
 
 ```
@@ -102,10 +223,17 @@ Intelligent-Document-Assistant/
 ├── notebooks/
 │   └── retrieval.ipynb          # Exploratory notebook with examples
 ├── src/
+│   ├── __init__.py              # Package initialization
+│   ├── config.py                # Configuration constants
 │   ├── doc_process.py           # Document processing and chunking
 │   ├── embeddings.py            # Embedding generation and management
 │   ├── build_index.py           # FAISS index creation
-│   └── search.py                # Search interface
+│   ├── search.py                # Search interface
+│   ├── prompt.py                # Prompt building utilities
+│   ├── retrieval.py             # Context validation utilities
+│   ├── llm.py                   # Ollama LLM integration
+│   ├── pipeline.py              # RAG pipeline orchestration
+│   └── rag_pipeline.py          # Backward compatibility re-exports
 └── artifacts/                   # Generated artifacts (indexed files)
     ├── chunks.pkl               # Processed chunks
     ├── faiss_index.bin          # FAISS index
@@ -115,7 +243,7 @@ Intelligent-Document-Assistant/
 
 ## Quick Start
 
-**Full pipeline:**
+**Full retrieval pipeline:**
 ```bash
 # 1. Process documents
 python src/doc_process.py
@@ -125,6 +253,25 @@ python src/build_index.py
 
 # 3. Start searching
 python src/search.py
+```
+
+**Full RAG pipeline (with LLM generation):**
+```bash
+# Install and start Ollama
+ollama serve
+
+# In another terminal, pull a model
+ollama pull llama2  # or mistral, neural-chat, etc.
+
+# Run the RAG pipeline
+python -c "
+from src.search import search
+from src.rag_pipeline import rag_generate
+
+context = search('Como calcular o imposto de renda?', top_k=5)
+response = rag_generate('Como calcular o imposto de renda?', context=context)
+print(response)
+"
 ```
 
 **Example queries (PT-BR):**
@@ -141,10 +288,25 @@ Key parameters in each script:
 - `CHUNK_OVERLAP = 100` - Token overlap between chunks
 - `SEPARATORS` - Legal structure patterns (Articles, Paragraphs, etc.)
 
-**build_index.py:**
-- `BATCH_SIZE = 32` - Batch size for embedding generation
+**embeddings.py:**
 - `MODEL_NAME = "intfloat/multilingual-e5-base"` - Embedding model
+- `BATCH_SIZE = 32` - Batch size for embedding generation
+
+**build_index.py:**
 - `TOP_K = 5` - Default number of results
+
+**search.py:**
+- `TOP_K = 5` - Default number of search results
+
+**rag_pipeline.py:**
+- `OLLAMA_API_URL = "http://localhost:11434/api"` - Ollama server URL
+- `MAX_RETRIES = 2` - Retry attempts on timeout/connection errors
+- `RETRY_DELAY = 2` - Seconds between retry attempts
+- `REQUEST_TIMEOUT = 300` - Request timeout in seconds
+- `MIN_CONTEXT_QUALITY = 0.4` - Minimum distance threshold for context
+- Resource levels: `high_resource`, `medium_resource`, `low_resource`
+- Default temperature: `0.7`
+- Default top_p: `0.9`
 
 ## Installation
 
