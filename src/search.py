@@ -4,7 +4,7 @@ import faiss
 import pickle
 import numpy as np
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Any
 
 from embeddings import load_model, encode_query
 
@@ -63,7 +63,7 @@ def load_chunks(artifacts_dir: Path) -> List[Dict]:
     print(f"Loaded {len(chunks)} chunks")
     return chunks
 
-
+#TODO - Pass this function to the retrieval module.
 def retrieve(
     query: str,
     index: faiss.Index,
@@ -76,7 +76,8 @@ def retrieve(
     query_embedding = encode_query(query, model)
     
     # Search in FAISS index
-    distances, indices = index.search(query_embedding, top_k)
+    # TODO - Explorer other metric - in the build_index module
+    scores, indices = index.search(query_embedding, top_k)
     
     # Retrieve relevant chunks
     results = []
@@ -85,7 +86,7 @@ def retrieve(
             chunk = chunks[idx]
             results.append({
                 "rank": i + 1,
-                "distance": float(distances[0][i]),
+                "distance": float(scores[0][i]),
                 "doc_id": chunk["doc_id"],
                 "chunk_id": chunk["chunk_id"],
                 "filename": chunk["filename"],
@@ -123,13 +124,15 @@ def search_cli(model, index: faiss.Index, chunks: List[Dict]) -> None:
     print("=" * 80)
     print("Type 'quit' or 'exit' to close")
     print("=" * 80 + "\n")
+
+    final_message = "\nThanks. Goodbye!"
     
     while True:
         try:
-            query = input("\nEnter your search query (PT-BR): ").strip()
+            query = input("\nEnter your search query (PT-BR):\n").strip()
             
             if query.lower() in ["quit", "exit"]:
-                print("\nGoodbye!")
+                print(final_message)
                 break
             
             if not query:
@@ -140,7 +143,7 @@ def search_cli(model, index: faiss.Index, chunks: List[Dict]) -> None:
             print(format_results(query, results))
             
         except KeyboardInterrupt:
-            print("\n\nGoodbye!")
+            print(final_message)
             break
         except Exception as e:
             print(f"Error during search: {e}")
@@ -177,7 +180,7 @@ def main():
         print(f"\nUnexpected error: {e}")
         sys.exit(1)
 
-
+# BUG - This function is not optimized
 def search(query: str, top_k: int = TOP_K) -> List[Dict]:
     """
     Standalone search function for programmatic use.
@@ -192,6 +195,104 @@ def search(query: str, top_k: int = TOP_K) -> List[Dict]:
     chunks = load_chunks(artifacts_dir)
     
     return retrieve(query, index, chunks, model, top_k=top_k)
+
+#TODO - Remove the function above and uncomment the one below.
+# def search(
+#         query: str, 
+#         chunks: List[Dict], 
+#         index: faiss.Index, 
+#         model,
+#         top_k: int = TOP_K 
+#     ) -> List[Dict]:
+#     """
+#         Standalone search function. 
+#     """
+#     return retrieve(query, index, chunks, model, top_k)
+
+class SearchEngine:
+    """
+        Search engine class to encapsulate retrieval logic and resources.
+    """
+    def __init__(self):
+        self.artifacts_dir = self.setup_directories()
+        self.model = load_model()
+        self.index = self.load_index()
+        self.chunks = self.load_chunks()
+
+    @staticmethod
+    def setup_directories() -> Path:
+        """Get artifacts directory."""
+        artifacts_dir = Path(__file__).parent.parent / "artifacts"
+        if not artifacts_dir.exists():
+            raise FileNotFoundError(f"Artifacts directory not found: {artifacts_dir}")
+        print(f"Artifacts directory: {artifacts_dir}")
+        return artifacts_dir
+    
+    def load_index(self) -> faiss.Index:
+        """Load FAISS index from file."""
+        print("\nLoading FAISS index...")
+        index_path = self.artifacts_dir / "faiss_index.bin"
+        
+        if not index_path.exists():
+            raise FileNotFoundError(
+                f"FAISS index not found: {index_path}\n"
+                f"Please run build_index.py first."
+            )
+        
+        index = faiss.read_index(str(index_path))
+        print(f"Loaded FAISS index with {index.ntotal} vectors")
+        return index
+    
+    def load_chunks(self) -> List[Dict]:
+        """Load chunks from pickle file."""
+        print("\nLoading chunks...")
+        chunks_path = self.artifacts_dir / "chunks.pkl"
+        
+        if not chunks_path.exists():
+            raise FileNotFoundError(
+                f"Chunks file not found: {chunks_path}\n"
+                f"Please run doc_process.py first."
+            )
+        
+        with open(chunks_path, "rb") as f:
+            chunks = pickle.load(f)
+        
+        print(f"Loaded {len(chunks)} chunks")
+        return chunks
+
+    # def _load_index(self) -> faiss.Index:
+    #     index_path = self.artifacts_dir / "faiss_index.bin"
+    #     if not index_path.exists():
+    #         raise FileNotFoundError(f"FAISS index not found: {index_path}")
+    #     return faiss.read_index(str(index_path))
+
+    # def _load_chunks(self) -> List[Dict[str, Any]]:
+    #     chunks_path = self.artifacts_dir / "chunks.pkl"
+    #     if not chunks_path.exists():
+    #         raise FileNotFoundError(f"Chunks file not found: {chunks_path}")
+    #     with open(chunks_path, "rb") as f:
+    #         return pickle.load(f)
+
+    def retrieve(self, query: str, top_k: int = TOP_K) -> List[Dict]:
+        query_embedding = encode_query(query, self.model)
+        scores, indices = self.index.search(query_embedding, top_k)
+
+        results = []
+        for i, idx in enumerate(indices[0]):
+            if idx == -1:
+                continue
+
+            chunk = self.chunks[idx]
+            results.append({
+                "rank": i + 1,
+                "score": float(scores[0][i]),
+                "doc_id": chunk.get("doc_id"),
+                "chunk_id": chunk.get("chunk_id"),
+                "filename": chunk.get("filename"),
+                "text": chunk.get("text", "")
+            })
+
+        return results
 
 
 if __name__ == "__main__":
