@@ -55,6 +55,7 @@ def build_prompt(
         "Você é um assistente especializado em Imposto de Renda no Brasil. "
         "Responda apenas com base no contexto fornecido. "
         "Se a informação não estiver nos documentos, indique claramente que não foi encontrada."
+        "Responda em Português do Brasil (PT-BR)."
     )
     system_message = system_prompt or default_system_message
     
