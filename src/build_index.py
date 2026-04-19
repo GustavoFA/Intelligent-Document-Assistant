@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Dict
 
 from embeddings import load_model, generate_embeddings
+from config import TOP_K, EMBEDDING_MODEL_NAME
 
 """
 Build and save FAISS index for Portuguese-BR legal documents.
@@ -17,9 +18,6 @@ This script:
 3. Creates and saves FAISS index
 4. Saves metadata for retrieval
 """
-
-# Configuration
-TOP_K = 5
 
 
 def setup_directories() -> Path:
@@ -68,7 +66,7 @@ def save_index(
     index: faiss.Index,
     chunks: List[Dict],
     artifacts_dir: Path,
-    model_name: str = "intfloat/multilingual-e5-base"
+    model_name: str = EMBEDDING_MODEL_NAME
 ) -> None:
     """Save FAISS index and metadata."""
     print("\nSaving index and metadata...")

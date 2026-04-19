@@ -4,6 +4,7 @@ import numpy as np
 from typing import List, Dict
 
 from sentence_transformers import SentenceTransformer
+from config import EMBEDDING_MODEL_NAME, EMBEDDING_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,8 @@ This module handles:
 3. Encoding query strings into embeddings
 """
 
-# Configuration
-MODEL_NAME = "intfloat/multilingual-e5-base"
-BATCH_SIZE = 32
 
-
-def load_model(model_name: str = MODEL_NAME) -> SentenceTransformer:
+def load_model(model_name: str = EMBEDDING_MODEL_NAME) -> SentenceTransformer:
     """
     Load pretrained embedding model.
     
@@ -40,7 +37,7 @@ def load_model(model_name: str = MODEL_NAME) -> SentenceTransformer:
 def generate_embeddings(
     chunks: List[Dict],
     model: SentenceTransformer,
-    batch_size: int = BATCH_SIZE
+    batch_size: int = EMBEDDING_BATCH_SIZE
 ) -> np.ndarray:
     """
     Generate embeddings for all document chunks.

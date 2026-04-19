@@ -6,6 +6,13 @@ from pathlib import Path
 from typing import List, Dict
 from datasets import load_dataset
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from config import (
+    CHUNK_SIZE,
+    CHUNK_OVERLAP,
+    SEPARATORS,
+    HF_DATASET_NAME,
+    HF_DATA_FILE,
+)
 
 """
 Document processing and chunking for PT-BR legal documents.
@@ -15,23 +22,6 @@ This script:
 2. Cleans and chunks them with PT-BR legal structure awareness
 3. Saves chunks to artifacts/chunks.pkl for later use
 """
-
-# Configuration
-CHUNK_SIZE = 700
-CHUNK_OVERLAP = 100
-
-SEPARATORS = [
-    r"\n\s*Art\.\s+\d+[A-Za-zº°-]*",
-    r"\n\s*§\s*\d+[A-Za-zº°-]*",
-    r"\n\s*Parágrafo único",
-    r"\n\s*Inciso\s+[IVXLCDM]+",
-    r"\n\s*\n",
-    r"\n",
-    r"\.\s+",
-    r";\s+",
-    r",\s+",
-    r"\s+",
-]
 
 
 def setup_directories() -> Path:
@@ -46,8 +36,8 @@ def load_documents() -> List[Dict]:
     """Load documents from Hugging Face dataset."""
     print("\nLoading documents...")
     documents_dataset = load_dataset(
-        "unicamp-dl/rag-rfb",
-        data_files="referred_legal_documents_QA_2024_v1.1.json",
+        HF_DATASET_NAME,
+        data_files=HF_DATA_FILE,
         split="train"
     )
     documents = documents_dataset.to_list()
@@ -91,8 +81,10 @@ def chunk_documents(
     texts: List[Dict],
     chunk_size: int = CHUNK_SIZE,
     chunk_overlap: int = CHUNK_OVERLAP,
-    separators: List[str] = SEPARATORS,
+    separators: List[str] = None,
 ) -> List[Dict]:
+    if separators is None:
+        separators = SEPARATORS
     """Chunk documents respecting legal structure."""
     print("\nChunking documents...")
     text_splitter = RecursiveCharacterTextSplitter(
