@@ -1,5 +1,5 @@
 """
-Configuration constants for RAG pipeline.
+Configuration constants for the RAG pipeline.
 """
 
 # Ollama configuration
@@ -23,8 +23,36 @@ MODELS_CONFIG = {
     },
 }
 
-# Timeout configuration
+# Request / retry configuration
 MAX_RETRIES = 2
-RETRY_DELAY = 2  # seconds
-REQUEST_TIMEOUT = 300  # 5 minutes
-MIN_CONTEXT_QUALITY = 0.4  # Minimum distance threshold for context relevance
+RETRY_DELAY = 2
+REQUEST_TIMEOUT = 300
+
+# Retrieval configuration
+TOP_K = 5
+MAX_CONTEXT_DISTANCE = 0.4
+
+# Embedding configuration
+EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-base"
+EMBEDDING_BATCH_SIZE = 32
+
+# Chunking configuration
+CHUNK_SIZE = 700
+CHUNK_OVERLAP = 100
+
+SEPARATORS = [
+    r"\n\s*Art\.\s+\d+[A-Za-zº°-]*",
+    r"\n\s*§\s*\d+[A-Za-zº°-]*",
+    r"\n\s*Parágrafo único",
+    r"\n\s*Inciso\s+[IVXLCDM]+",
+    r"\n\s*\n",
+    r"\n",
+    r"\.\s+",
+    r";\s+",
+    r",\s+",
+    r"\s+",
+]
+
+# Dataset configuration
+HF_DATASET_NAME = "unicamp-dl/rag-rfb"
+HF_DATA_FILE = "referred_legal_documents_QA_2024_v1.1.json"
