@@ -4,7 +4,7 @@ import numpy as np
 from typing import List, Dict
 
 from sentence_transformers import SentenceTransformer
-from config import EMBEDDING_MODEL_NAME, EMBEDDING_BATCH_SIZE
+from .config import EMBEDDING_MODEL_NAME, EMBEDDING_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 

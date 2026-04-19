@@ -6,8 +6,8 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
-from embeddings import load_model, encode_query
-from config import TOP_K, MAX_CONTEXT_DISTANCE
+from .embeddings import load_model, encode_query
+from .config import TOP_K, MAX_CONTEXT_DISTANCE
 
 """
 Search functionality for retrieved documents using FAISS and pre-computed embeddings.

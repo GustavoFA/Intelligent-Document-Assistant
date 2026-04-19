@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Dict
 from datasets import load_dataset
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from config import (
+from .config import (
     CHUNK_SIZE,
     CHUNK_OVERLAP,
     SEPARATORS,

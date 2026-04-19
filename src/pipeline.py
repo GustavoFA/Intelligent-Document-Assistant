@@ -5,7 +5,7 @@ from .search import SearchEngine
 from .prompt import build_prompt
 # from .retrieval import check_context_quality
 from .llm import call_ollama, check_ollama_availability, list_models_info
-from .embeddings import load_model, encode_query
+# from .embeddings import load_model, encode_query
 
 """
 RAG (Retrieval-Augmented Generation) pipeline orchestration.

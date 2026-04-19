@@ -6,8 +6,8 @@ import numpy as np
 from pathlib import Path
 from typing import List, Dict
 
-from embeddings import load_model, generate_embeddings
-from config import TOP_K, EMBEDDING_MODEL_NAME
+from .embeddings import load_model, generate_embeddings
+from .config import TOP_K, EMBEDDING_MODEL_NAME
 
 """
 Build and save FAISS index for Portuguese-BR legal documents.
