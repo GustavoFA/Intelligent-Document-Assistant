@@ -56,7 +56,7 @@ def create_faiss_index(embeddings: np.ndarray) -> faiss.Index:
     print("\nCreating FAISS index...")
     embeddings = np.array(embeddings).astype("float32")
 
-    # Create index using L2 distance
+    # Create index using L2 distance - smaller score are more similar
     index = faiss.IndexFlatL2(embeddings.shape[1])
     index.add(embeddings)
 

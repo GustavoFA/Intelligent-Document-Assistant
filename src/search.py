@@ -4,7 +4,7 @@ import faiss
 import pickle
 import logging
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 from embeddings import load_model, encode_query
 
@@ -207,6 +207,23 @@ class SearchEngine:
         
         return False
 
+    def retrieve_with_quality_check(
+            self,
+            query: str,
+            top_k: int = TOP_K
+    ) -> Tuple[List[Dict], bool]:
+        """
+        Retrieve context and validate retrieval quality.
+        
+        Returns:
+            Tuple containing:
+            - context: retrieved chunks
+            - quality: whether context quality is sufficient
+        """
+
+        context = self.retrieve(query, top_k)
+        quality = self.check_context_quality(context)
+        return context, quality
 
 if __name__ == "__main__":
     main()
