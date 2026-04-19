@@ -62,3 +62,21 @@ class RAGRequest(BaseModel):
         ge=1,
         le=20
     )
+
+class ModelsResponse(BaseModel):
+    high_resource: List[str] = Field(..., description="Models for high resource systems")
+    medium_resource: List[str] = Field(..., description="Models for medium resource systems")
+    low_resource: List[str] = Field(..., description="Models for low resource systems")
+    available_models: List[str] = Field(..., description="Installed Ollama models")
+
+class RAGResponse(BaseModel):
+    user_prompt: str
+    response: str
+    context_count: Optional[int] = None
+    model_used: Optional[str] = None
+
+class HealthResponse(BaseModel):
+    status: str
+    ollama_available: bool
+    faiss_index_available: bool
+    chunking_data_available: bool

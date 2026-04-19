@@ -1,30 +1,34 @@
 #!/bin/bash
-# FastAPI server startup script
 
-# Colors for output
+set -e
+
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-echo -e "${BLUE}Starting Intelligent Document Assistant FastAPI Server${NC}"
+echo -e "${BLUE}Starting Intelligent Document Assistant API${NC}"
 echo ""
 
-# Check if artifacts exist
-if [ ! -f "artifacts/faiss_index.bin" ]; then
-    echo "FAISS index not found. Running build_index.py..."
-    python src/build_index.py
+# Ensure artifacts folder exists
+mkdir -p artifacts
+
+# Step 1: chunks first
+if [ ! -f "artifacts/chunks.pkl" ]; then
+    echo -e "${YELLOW}Chunks not found. Running doc_process...${NC}"
+    python3 -m src.doc_process
 fi
 
-if [ ! -f "artifacts/chunks.pkl" ]; then
-    echo "Chunks file not found. Running doc_process.py..."
-    python src/doc_process.py
+# Step 2: index second
+if [ ! -f "artifacts/faiss_index.bin" ]; then
+    echo -e "${YELLOW}FAISS index not found. Running build_index...${NC}"
+    python3 -m src.build_index
 fi
 
 echo ""
 echo -e "${GREEN}Starting FastAPI server...${NC}"
-echo "API Documentation: http://localhost:8000/docs"
-echo "Alternative docs: http://localhost:8000/redoc"
+echo "Swagger Docs: http://localhost:8000/docs"
+echo "ReDoc:        http://localhost:8000/redoc"
 echo ""
 
-# Run FastAPI server
-python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+python3 -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000

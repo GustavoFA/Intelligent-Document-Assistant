@@ -121,7 +121,7 @@ async def root():
 # Health
 # -----------------------------------------------------------------------------
 
-@app.get("/health", response_model=HealthResponse, tags=["Health"])
+@app.get("/health", response_model=SearchResponse, tags=["Health"])
 async def health_check():
     """Check system health and component availability."""
     try:
@@ -130,7 +130,7 @@ async def health_check():
 
         status = "healthy" if (faiss_ok and ollama_ok) else "degraded"
 
-        return HealthResponse(
+        return SearchResponse(
             status=status,
             ollama_available=ollama_ok,
             faiss_index_available=faiss_ok,
@@ -138,7 +138,7 @@ async def health_check():
         )
     except Exception as e:
         logger.error("Health check failed: %s", e)
-        return HealthResponse(
+        return SearchResponse(
             status="unhealthy",
             ollama_available=False,
             faiss_index_available=False,
