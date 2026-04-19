@@ -56,8 +56,8 @@ def load_documents() -> List[Dict]:
 
 
 def clean_legal_text(text: str) -> str:
-    """Clean legal text by removing noise and normalizing whitespace."""
-    text = re.sub(r"[\ue000-\uf8ff]", " ", text)  # private-use glyphs
+    """Clean legal text while preserving structural line breaks."""
+    text = re.sub(r"[\ue000-\uf8ff]", " ", text)
     text = re.sub(
         r"\*Este texto não substitui o publicado oficialmente\.",
         " ",
@@ -68,17 +68,30 @@ def clean_legal_text(text: str) -> str:
         r"A visualização deste sistema.*$",
         " ",
         text,
-        flags=re.I
+        flags=re.I | re.MULTILINE
     )
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+
+    # normalize line endings
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    # remove trailing spaces around lines
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    text = re.sub(r"\n[ \t]+", "\n", text)
+
+    # collapse repeated spaces but keep newlines
+    text = re.sub(r"[ \t]+", " ", text)
+
+    # collapse excessive blank lines
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text.strip()
 
 
 def chunk_documents(
     texts: List[Dict],
     chunk_size: int = CHUNK_SIZE,
     chunk_overlap: int = CHUNK_OVERLAP,
-    separators: list = SEPARATORS,
+    separators: List[str] = SEPARATORS,
 ) -> List[Dict]:
     """Chunk documents respecting legal structure."""
     print("\nChunking documents...")
@@ -116,7 +129,7 @@ def chunk_documents(
     print(f"Created {len(chunks)} chunks")
     return chunks
 
-
+#TODO - change to json save
 def save_chunks(chunks: List[Dict], artifacts_dir: Path) -> None:
     """Save chunks to pickle file."""
     print("\nSaving chunks...")
