@@ -12,6 +12,13 @@ This project implements a production-ready pipeline for:
 
 The system currently focuses on Brazilian income tax (IRPF) legal documents from the [unicamp-dl/rag-rfb](https://huggingface.co/datasets/unicamp-dl/rag-rfb) Hugging Face dataset.
 
+## Future Improvements
+
+- Improve the RAG system 
+  - Chat memory
+  - Citations
+  - Anti-hallucination
+
 ## Workflow
 
 ### Step 1: Document Processing (`doc_process.py`)
