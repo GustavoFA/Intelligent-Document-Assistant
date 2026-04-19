@@ -67,7 +67,7 @@ def select_model(resource_level: str = "medium_resource") -> Optional[str]:
     
     if not available_models:
         print("No models found in Ollama. Please pull a model first:")
-        print("  ollama pull llama2")
+        print("  ollama pull llama2:7b")
         return None
     
     # Try to find a model from the preferred list
@@ -82,7 +82,7 @@ def select_model(resource_level: str = "medium_resource") -> Optional[str]:
     print(f"Preferred models not found. Using: {available_models[0]}")
     return available_models[0]
 
-
+# TODO - temperature should be optional
 def call_ollama(
     system_message: str,
     user_message: str,
