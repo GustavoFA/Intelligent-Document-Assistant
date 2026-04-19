@@ -6,6 +6,8 @@ from .config import MIN_CONTEXT_QUALITY
 Retrieval and context validation utilities for RAG pipeline.
 """
 
+#NOTE - Add in this code the retrieval function
+
 def check_context_quality(context: Optional[List[Dict]]) -> bool:
     """
     Check if context has sufficient quality based on search distances.
