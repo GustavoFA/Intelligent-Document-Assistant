@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
 from embeddings import load_model, encode_query
-
-from .config import MIN_CONTEXT_QUALITY
+from config import TOP_K, MAX_CONTEXT_DISTANCE
 
 """
 Search functionality for retrieved documents using FAISS and pre-computed embeddings.
@@ -18,9 +17,6 @@ This script:
 2. Loads chunks from artifacts/chunks.pkl
 3. Provides search interface to query relevant documents
 """
-
-# Configuration
-TOP_K = 5
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +199,7 @@ class SearchEngine:
         # Check if any chunk has distance below threshold (higher quality)
         if context and len(context) > 0:
             best_distance = min(chunk.get('distance', float('inf')) for chunk in context)
-            return best_distance < MIN_CONTEXT_QUALITY
+            return best_distance < MAX_CONTEXT_DISTANCE
         
         return False
 
