@@ -131,18 +131,44 @@ Key parameters in each script:
 - `MODEL_NAME = "intfloat/multilingual-e5-base"` - Embedding model
 - `TOP_K = 5` - Default number of results
 
-## Dependencies
+## Installation
+
+### Option 1: Using requirements.txt (Recommended for reproducibility)
+
+```bash
+pip install -r requirements.txt
+```
+
+This installs all dependencies with pinned versions, ensuring reproducible environments across different machines and setups.
+
+### Option 2: Using requirements.in
+
+```bash
+pip install -r requirements.in
+```
+
+This installs core dependencies with flexible version constraints, suitable for development environments.
+
+### Manual Installation
+
+```bash
+pip install faiss-cpu sentence-transformers langchain-text-splitters datasets numpy pandas tqdm
+```
+
+Or for GPU support (requires CUDA):
+```bash
+pip install faiss-gpu sentence-transformers langchain-text-splitters datasets numpy pandas tqdm
+```
+
+## Core Dependencies
 
 - `faiss-cpu` or `faiss-gpu` - Vector similarity search
 - `sentence-transformers` - Multilingual embeddings
 - `langchain-text-splitters` - Document chunking
-- `datasets` - Hugging Face datasets
-- `numpy`, `pandas` - Data processing
-
-Install with:
-```bash
-pip install faiss-cpu sentence-transformers langchain-text-splitters datasets numpy pandas
-```
+- `datasets` - Hugging Face dataset loading
+- `numpy` - Numerical computing
+- `pandas` - Data manipulation
+- `tqdm` - Progress bars
 
 ## License
 
