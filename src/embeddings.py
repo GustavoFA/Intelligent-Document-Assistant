@@ -1,3 +1,12 @@
+
+import logging 
+import numpy as np
+from typing import List, Dict
+
+from sentence_transformers import SentenceTransformer
+
+logger = logging.getLogger(__name__)
+
 """
 Embedding generation and management for PT-BR legal documents.
 
@@ -6,12 +15,6 @@ This module handles:
 2. Generating embeddings for document chunks
 3. Encoding query strings into embeddings
 """
-
-import numpy as np
-from typing import List, Dict
-
-from sentence_transformers import SentenceTransformer
-
 
 # Configuration
 MODEL_NAME = "intfloat/multilingual-e5-base"
@@ -28,9 +31,9 @@ def load_model(model_name: str = MODEL_NAME) -> SentenceTransformer:
     Returns:
         Loaded SentenceTransformer model
     """
-    print(f"\nLoading model: {model_name}")
+    logger.info(f"\nLoading model: {model_name}")
     model = SentenceTransformer(model_name)
-    print("Model loaded successfully")
+    logger.info("Model loaded successfully")
     return model
 
 
@@ -50,17 +53,19 @@ def generate_embeddings(
     Returns:
         Array of embeddings with shape (num_chunks, embedding_dim)
     """
-    print("\nGenerating embeddings...")
-    texts = [chunk["text"] for chunk in chunks]
+    logger.info("\nGenerating embeddings...")
+    #BUG - E5 need prefixes
+    # texts = [chunk["text"] for chunk in chunks]
+    texts = [f"passage: {chunk['text']}" for chunk in chunks]
 
     embeddings = model.encode(
         texts,
         batch_size=batch_size,
         show_progress_bar=True,
         convert_to_numpy=True
-    )
+    ).astype("float32")
 
-    print(f"Generated embeddings with shape {embeddings.shape}")
+    logger.info(f"Generated embeddings with shape {embeddings.shape}")
     return embeddings
 
 
@@ -78,5 +83,5 @@ def encode_query(
     Returns:
         Query embedding as float32 numpy array
     """
-    query_embedding = model.encode([query], convert_to_numpy=True).astype("float32")
+    query_embedding = model.encode([f"query: {query}"], convert_to_numpy=True).astype("float32")
     return query_embedding
