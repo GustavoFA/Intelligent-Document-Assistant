@@ -6,3 +6,5 @@ requirements.in
 
 artifacts/*
 !artifacts/.gitkeep
+
+__pycache__/
