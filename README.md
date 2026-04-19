@@ -23,6 +23,8 @@ The system currently focuses on Brazilian income tax (IRPF) legal documents from
 
 - Change pickle to JSON in chunk saving.
 
+- Change index method for IndexFlatL2 (with normalization)
+
 ## Workflow
 
 ### Step 1: Document Processing (`doc_process.py`)
