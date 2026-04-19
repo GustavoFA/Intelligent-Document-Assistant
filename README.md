@@ -343,6 +343,233 @@ Key parameters in each script:
 - Default temperature: `0.7`
 - Default top_p: `0.9`
 
+## REST API (FastAPI)
+
+The system provides a production-ready REST API for semantic search and RAG generation.
+
+### Starting the API Server
+
+```bash
+# Option 1: Using provided script
+bash run_api.sh
+
+# Option 2: Direct command
+python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**API will be available at:**
+- Main API: `http://localhost:8000`
+- Interactive Docs (Swagger): `http://localhost:8000/docs`
+- Alternative Docs (ReDoc): `http://localhost:8000/redoc`
+
+### API Flow
+
+```
+User → HTTP Request → FastAPI → rag_generate() → Response JSON
+```
+
+### API Endpoints
+
+#### 1. Health Check
+```bash
+GET /health
+```
+Check system status and component availability.
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "ollama_available": true,
+  "faiss_index_available": true,
+  "chunking_data_available": true
+}
+```
+
+#### 2. List Available Models
+```bash
+GET /models
+```
+Get available Ollama models and resource configurations.
+
+**Response:**
+```json
+{
+  "high_resource": ["llama3", "llama2:13b", "mistral"],
+  "medium_resource": ["llama2:7b", "neural-chat", "mistral"],
+  "low_resource": ["orca-mini", "neural-chat:latest", "phi"],
+  "available_models": ["llama2:latest", "mistral:latest"]
+}
+```
+
+#### 3. Semantic Search
+```bash
+POST /search
+Content-Type: application/json
+
+{
+  "query": "Como calcular o imposto de renda?",
+  "top_k": 5
+}
+```
+
+**Response:**
+```json
+{
+  "query": "Como calcular o imposto de renda?",
+  "results": [
+    {
+      "rank": 1,
+      "distance": 0.2393,
+      "filename": "Lei nº 11.482.txt",
+      "text": "O imposto de renda incidente sobre os rendimentos..."
+    }
+  ],
+  "count": 5
+}
+```
+
+#### 4. RAG Generation (with pre-retrieved context)
+```bash
+POST /rag/generate
+Content-Type: application/json
+
+{
+  "user_prompt": "Como calcular o imposto de renda?",
+  "context": [
+    {
+      "rank": 1,
+      "distance": 0.2393,
+      "doc_id": "doc_1",
+      "chunk_id": 5,
+      "filename": "Lei nº 11.482.txt",
+      "text": "O imposto de renda incidente sobre os rendimentos..."
+    }
+  ],
+  "model": "llama2",
+  "resource_level": "medium_resource",
+  "temperature": 0.7,
+  "top_k": 5
+}
+```
+
+**Response:**
+```json
+{
+  "user_prompt": "Como calcular o imposto de renda?",
+  "response": "O imposto de renda é calculado de acordo com a legislação... [LLM response]",
+  "context_count": 1,
+  "model_used": "llama2"
+}
+```
+
+#### 5. RAG Generation (with automatic context retrieval)
+```bash
+POST /rag/generate/auto?query=Como+calcular+o+imposto+de+renda?&top_k=5&model=llama2&temperature=0.7
+```
+
+**Response:**
+```json
+{
+  "user_prompt": "Como calcular o imposto de renda?",
+  "response": "O imposto de renda é calculado de acordo com a legislação... [LLM response]",
+  "context_count": null,
+  "model_used": "llama2"
+}
+```
+
+### Example Requests
+
+**Using curl (Automatic RAG):**
+```bash
+curl -X POST "http://localhost:8000/rag/generate/auto" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Como calcular o imposto de renda?"
+  }'
+```
+
+**Using Python (with requests):**
+```python
+import requests
+
+# Search for context
+search_response = requests.post(
+    "http://localhost:8000/search",
+    json={"query": "Como calcular o imposto de renda?", "top_k": 5}
+)
+context = search_response.json()["results"]
+
+# Generate response with context
+rag_response = requests.post(
+    "http://localhost:8000/rag/generate",
+    json={
+        "user_prompt": "Como calcular o imposto de renda?",
+        "context": context,
+        "model": "llama2"
+    }
+)
+print(rag_response.json()["response"])
+```
+
+**Using Python (automatic retrieval):**
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8000/rag/generate/auto",
+    params={
+        "query": "Como calcular o imposto de renda?",
+        "top_k": 5,
+        "model": "llama2",
+        "temperature": 0.7
+    }
+)
+print(response.json()["response"])
+```
+
+### API Configuration
+
+**api/schemas.py:**
+- Pydantic models for request/response validation
+- Type checking and documentation generation
+
+**api/main.py:**
+- FastAPI application with all endpoints
+- CORS middleware enabled
+- Automatic documentation (Swagger, ReDoc)
+
+**api/dependencies.py:**
+- Cached loading of FAISS index, chunks, and embedding model
+- Health check functions
+- Resource management
+
+### Performance Tips
+
+1. **Pre-compute context**: For better performance, retrieve context separately and reuse:
+   ```python
+   # Slow: context retrieved on every request
+   POST /rag/generate/auto
+   
+   # Faster: context retrieved once, reused for multiple queries
+   POST /search → GET context
+   POST /rag/generate → Use same context
+   ```
+
+2. **Resource Optimization**: Choose resource level based on your hardware:
+   ```bash
+   # For limited resources
+   "resource_level": "low_resource"
+   
+   # For typical setup
+   "resource_level": "medium_resource"
+   
+   # For high-end GPU
+   "resource_level": "high_resource"
+   ```
+
+3. **Context Caching**: FAISS index and chunks are cached in memory after first load
+
 ## Installation
 
 ### Option 1: Using requirements.txt (Recommended for reproducibility)
@@ -374,13 +601,22 @@ pip install faiss-gpu sentence-transformers langchain-text-splitters datasets nu
 
 ## Core Dependencies
 
+**RAG Pipeline:**
 - `faiss-cpu` or `faiss-gpu` - Vector similarity search
 - `sentence-transformers` - Multilingual embeddings
 - `langchain-text-splitters` - Document chunking
 - `datasets` - Hugging Face dataset loading
+- `requests` - HTTP calls to Ollama API
+
+**Data Processing:**
 - `numpy` - Numerical computing
 - `pandas` - Data manipulation
 - `tqdm` - Progress bars
+
+**Web API (FastAPI):**
+- `fastapi` - Modern web framework
+- `uvicorn` - ASGI server
+- `pydantic` - Data validation using Python type annotations
 
 ## License
 
