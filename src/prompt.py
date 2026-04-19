@@ -56,7 +56,7 @@ def build_prompt(
         "Responda apenas com base no contexto fornecido. "
         "Se a informação não estiver nos documentos, indique claramente que não foi encontrada."
     )
-    system_prompt = system_prompt or default_system_message
+    system_message = system_prompt or default_system_message
     
     # Build user message
     user_parts = []
