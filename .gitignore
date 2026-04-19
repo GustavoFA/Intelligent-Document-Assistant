@@ -3,3 +3,6 @@
 .codex
 
 requirements.in
+
+artifacts/*
+!artifacts/.gitkeep
