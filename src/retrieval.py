@@ -1,10 +1,10 @@
-"""
-Retrieval and context validation utilities for RAG pipeline.
-"""
 
 from typing import Optional, List, Dict
 from .config import MIN_CONTEXT_QUALITY
 
+"""
+Retrieval and context validation utilities for RAG pipeline.
+"""
 
 def check_context_quality(context: Optional[List[Dict]]) -> bool:
     """
