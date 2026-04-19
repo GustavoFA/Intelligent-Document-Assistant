@@ -19,6 +19,10 @@ The system currently focuses on Brazilian income tax (IRPF) legal documents from
   - Citations
   - Anti-hallucination
 
+- Improve the logging system
+
+- Change pickle to JSON in chunk saving.
+
 ## Workflow
 
 ### Step 1: Document Processing (`doc_process.py`)
