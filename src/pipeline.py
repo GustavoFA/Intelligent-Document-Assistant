@@ -3,7 +3,7 @@ from typing import Optional, List, Dict
 
 from .search import SearchEngine
 from .prompt import build_prompt
-from .retrieval import check_context_quality
+# from .retrieval import check_context_quality
 from .llm import call_ollama, check_ollama_availability, list_models_info
 from .embeddings import load_model, encode_query
 
@@ -138,7 +138,7 @@ if __name__ == "__main__":
         if context:
             print(f"Retrieved {len(context)} relevant chunks")
             for result in context:
-                print(f"  - Rank {result['rank']}: distance={result['distance']:.4f}")
+                print(f"  - Rank {result['rank']}: scores={result['score']:.4f}")
         else:
             print("No context retrieved")
             sys.exit(1)
